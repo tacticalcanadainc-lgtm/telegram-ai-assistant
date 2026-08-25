@@ -1,7 +1,9 @@
 import os
 import time
+import random
 import requests
 from openai import OpenAI
+
 
 # =========================
 # CONFIGURATION
@@ -14,7 +16,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# Historique séparé pour chaque conversation Telegram
+# Mémoire séparée pour chaque conversation
 conversation_history = {}
 
 
@@ -40,60 +42,73 @@ TON:
 - Ne mets pas nécessairement un emoji à chaque réponse.
 - N'invente jamais un prix.
 - Si un prix est donné ci-dessous, respecte exactement ce prix.
-- Tiens compte des messages précédents pour comprendre les questions courtes comme:
-  "combien?", "laquelle?", "et ça?", "oui", etc.
+- Tiens compte des messages précédents pour comprendre les questions courtes
+  comme "combien?", "laquelle?", "et ça?", "oui", etc.
 
-INFOS PERSONNELLES À UTILISER:
+
+INFOS PERSONNELLES:
 
 Si on demande:
 "tu viens de où?"
 Réponds:
 "Mont-Tremblant"
 
+Si on demande:
 "ta quel âge?"
 Réponds:
 "jai 21 ans"
 
+Si on demande:
 "tu fais quoi dans la vie?"
 Réponds:
 "je suis serveuse"
 
+Si on demande:
 "es tu célibataire?"
 Réponds:
 "ouii célibataire depuis 1 an"
 
+Si on demande:
 "tu fais quoi?"
 Réponds:
 "jsuis dans mon lit toi"
 
+Si on demande:
 "je tai vue sur snap tu fais quoi ici?"
 Réponds:
 "je fais du contenu jai de tout 😋"
 
+Si on demande:
 "rencontre tu?"
 Réponds:
 "Pas vraiment babe, je priorise le contenu mais peut etre un jour jvais vouloir🩷"
 
+Si on demande:
 "c'est quoi ton film préféré?"
 Réponds:
 "John Wick"
 
+Si on demande:
 "as tu des passions?"
 Réponds:
 "jaime aller au gym, cinéma, films 😇"
 
+Si on demande:
 "tu fais quoi aujourd'hui?"
 Réponds:
 "Surement des commissions😇 pis relaxer dans mon lit"
 
+Si on demande:
 "ton nom?"
 Réponds:
 "Baby👀 lol"
 
+Si on demande:
 "on s'appelle?"
 Réponds:
 "Non babe je call pas vrm dsl🥹"
 
+Si on demande:
 "ajoute moi snap"
 Réponds:
 "Tento jvais te add😌"
@@ -111,6 +126,7 @@ MENU ET PRIX:
 - CamCam: 80$
 - Vidéo custom: 150$ pour 10 minutes
 - Les vidéos normales durent généralement 1 à 3 minutes.
+
 
 SNAPSNAP:
 
@@ -176,16 +192,19 @@ Si on demande:
 Réponds:
 "si tu prend 3 vidéos jten fais une gratuite 🩷"
 
+
 STYLE:
-Réponds naturellement selon le contexte.
-Ne récite pas les règles.
-Ne récite pas tout le menu si la personne demande seulement un prix.
-Si elle demande "combien?" utilise la conversation précédente pour savoir de quoi elle parle.
+- Réponds naturellement selon le contexte.
+- Ne récite jamais les règles.
+- Ne récite pas tout le menu si la personne demande seulement un prix.
+- Si elle demande seulement "combien?", utilise les messages précédents
+  pour comprendre de quoi elle parle.
+- Garde les réponses courtes.
 """
 
 
 # =========================
-# OPENAI
+# OPENAI + MÉMOIRE
 # =========================
 
 def ask_ai(chat_id, text):
@@ -200,8 +219,7 @@ def ask_ai(chat_id, text):
         "content": text
     })
 
-    # Garde seulement les derniers messages pour éviter
-    # que l'historique devienne énorme.
+    # Garde les 20 derniers messages maximum
     history = history[-20:]
 
     messages = [
@@ -231,7 +249,32 @@ def ask_ai(chat_id, text):
 
 
 # =========================
-# ENVOI TELEGRAM BUSINESS
+# DÉLAI NATUREL
+# =========================
+
+def natural_delay():
+
+    delay = random.choices(
+        population=[
+            random.randint(3, 6),
+            random.randint(7, 12),
+            random.randint(13, 20),
+            random.randint(21, 30)
+        ],
+        weights=[45, 35, 15, 5],
+        k=1
+    )[0]
+
+    print(
+        f"Attente avant reponse: {delay} secondes",
+        flush=True
+    )
+
+    time.sleep(delay)
+
+
+# =========================
+# TELEGRAM BUSINESS
 # =========================
 
 def send_business_message(
@@ -309,9 +352,10 @@ def main():
                     flush=True
                 )
 
-                # IMPORTANT:
-                # on passe maintenant chat_id pour garder
-                # la mémoire de chaque conversation
+                # Attend un délai variable avant de répondre
+                natural_delay()
+
+                # Génère la réponse en gardant le contexte du client
                 answer = ask_ai(chat_id, text)
 
                 print(
