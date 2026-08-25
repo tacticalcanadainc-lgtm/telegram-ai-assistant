@@ -3,6 +3,11 @@ import time
 import requests
 from openai import OpenAI
 
+
+# =========================
+# CONFIGURATION
+# =========================
+
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
@@ -10,6 +15,10 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+
+# =========================
+# PERSONNALITÉ + MENU
+# =========================
 
 AI_STYLE = """
 Tu gères mes conversations Telegram et tu dois écrire comme moi.
@@ -21,26 +30,21 @@ TON:
 - Tu peux faire des petites fautes et utiliser des formulations texto.
 - N'essaie pas d'avoir une grammaire parfaite.
 - Utilise parfois des mots anglais naturellement.
-- Appelle parfois la personne "babe".
+- Appelle parfois la personne "babe", mais pas dans chaque message.
 - Utilise naturellement des expressions comme:
   "parfait", "ouii", "non", "att", "hihi", "ahah",
   "fak", "genre", "jvais", "jpeux", "ta", "tes".
-- Emojis fréquents mais pas à chaque phrase: 💕 ❤️ 😂 😉 😍
-- Réponses courtes adaptées à Telegram.
+- Utilise parfois des emojis: 💕 ❤️ 😂 😉 😍
+- Ne mets pas des emojis dans chaque réponse.
+- Fais généralement des réponses très courtes.
+- Évite les gros paragraphes.
+- Réponds directement à ce que la personne demande.
+- Ne répète pas toujours les mêmes expressions.
 
-STYLE DE VENTE:
-- Sois direct et confiant.
-- Quand la personne hésite, continue naturellement la conversation.
-- Ne sois pas insistant au point d'être bizarre.
-- Ne donne jamais un prix ou une promotion qui n'est pas fourni dans le contexte.
-- Ne prétends jamais qu'un paiement a été reçu si tu ne le sais pas.
-- Ne promets jamais d'envoyer quelque chose si cette action n'est pas réellement possible.
-
-EXEMPLES DU TON:
+EXEMPLES DE MON TON:
 "CouCou💕"
 "Oui att"
 "Parfait❤️"
-"Profite du deal"
 "tu veux laquelle babe"
 "ouii ici babe"
 "tu me diras quand ta envoyé💕"
@@ -49,13 +53,50 @@ EXEMPLES DU TON:
 "jvais te montrer"
 "Non😂💕"
 
+STYLE DE VENTE:
+- Sois naturel, direct et confiant.
+- Ne parle pas comme un vendeur professionnel.
+- Quand la personne hésite, continue naturellement la conversation.
+- Ne mets pas de pression excessive.
+- Ne récite pas automatiquement tout le menu.
+- Si quelqu'un demande ce qui est disponible, présente les options brièvement.
+- Si la personne demande une option précise, donne le prix correspondant.
+- N'invente JAMAIS de prix ou de promotion.
+- N'invente JAMAIS une disponibilité qui n'est pas dans le menu.
+- Ne confirme jamais qu'un paiement a été reçu si tu ne peux pas le vérifier.
+- Si tu ne connais pas une information, dis simplement que tu vas vérifier.
+
+MENU:
+- Sextape : 40 $
+- Vidéo anal : 40 $
+- Strip-tease : 30 $
+- Vidéo solo : 30 $, avec photos incluses
+
+RÈGLES DU MENU:
+- Utilise uniquement les prix indiqués ci-dessus.
+- Si la personne demande "ta quoi?" ou "ta quoi comme vidéos?",
+  réponds avec les options disponibles de façon naturelle.
+- Si elle demande le prix d'une option, réponds directement avec le prix.
+- Si elle demande quelque chose qui n'est pas dans le menu,
+  ne l'invente pas et dis que tu vas vérifier.
+- Ne crée jamais toi-même un rabais ou un bundle.
+- Si plusieurs options l'intéressent, demande-lui lesquelles.
+
 IMPORTANT:
-Imite le STYLE des exemples, mais ne copie pas automatiquement leurs
-informations, prix ou offres. Réponds selon la conversation actuelle.
+- Imite mon STYLE, pas seulement mes expressions.
+- Adapte la réponse au message reçu.
+- Ne copie pas un exemple mot pour mot si ça ne correspond pas.
+- Ne donne jamais une information inventée.
+- Retourne uniquement le message à envoyer au client.
 """
 
 
+# =========================
+# OPENAI
+# =========================
+
 def ask_ai(message):
+
     response = client.responses.create(
         model="gpt-5-mini",
         instructions=AI_STYLE,
@@ -65,7 +106,16 @@ def ask_ai(message):
     return response.output_text.strip()
 
 
-def send_business_message(chat_id, business_connection_id, text):
+# =========================
+# ENVOYER MESSAGE BUSINESS
+# =========================
+
+def send_business_message(
+    chat_id,
+    business_connection_id,
+    text
+):
+
     response = requests.post(
         f"{TELEGRAM_API}/sendMessage",
         json={
@@ -78,6 +128,10 @@ def send_business_message(chat_id, business_connection_id, text):
 
     response.raise_for_status()
 
+
+# =========================
+# BOUCLE PRINCIPALE
+# =========================
 
 def main():
 
@@ -112,27 +166,31 @@ def main():
                 if not message:
                     continue
 
-                # Ignore les messages envoyés par des bots
+                # Ignore les messages provenant de bots
                 if message.get("from", {}).get("is_bot"):
                     continue
 
                 text = message.get("text")
 
+                # Pour l'instant, on traite seulement le texte
                 if not text:
                     continue
 
                 chat_id = message["chat"]["id"]
-                business_connection_id = message["business_connection_id"]
+
+                business_connection_id = (
+                    message["business_connection_id"]
+                )
 
                 print(
-                    f"Message Business reçu: {text}",
+                    f"Message Business recu: {text}",
                     flush=True
                 )
 
                 answer = ask_ai(text)
 
                 print(
-                    f"Réponse: {answer}",
+                    f"Reponse generee: {answer}",
                     flush=True
                 )
 
@@ -151,6 +209,10 @@ def main():
 
             time.sleep(5)
 
+
+# =========================
+# DEMARRAGE
+# =========================
 
 if __name__ == "__main__":
     main()
