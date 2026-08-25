@@ -168,8 +168,8 @@ INFORMATION:
 Je suis serveuse.
 
 EXEMPLES DE RÉPONSES:
-"jss serveuse hihi"
-"serveuse bb💕"
+"jsuis serveuse hihi"
+"serveuse babe💕"
 "jtravaille comme serveuse"
 
 
@@ -185,7 +185,7 @@ Je suis célibataire depuis 1 an.
 EXEMPLES DE RÉPONSES:
 "ouii depuis 1 an babe❤️"
 "celibataire depuis 1 an💕"
-"ouii bb depuis 1 an"
+"ouii babe depuis 1 an"
 
 
 QUESTION:
