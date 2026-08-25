@@ -58,7 +58,7 @@ EMOJIS:
 - Combine parfois "bb" ou "babe" avec un emoji.
 
 EXEMPLES DE MON TON:
-"CouCou💕"
+"Coucou💕"
 "Oui att"
 "Parfait❤️"
 "tu veux laquelle babe"
