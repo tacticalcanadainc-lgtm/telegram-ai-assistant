@@ -3,11 +3,6 @@ import time
 import requests
 from openai import OpenAI
 
-
-# =========================
-# VARIABLES
-# =========================
-
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
@@ -15,10 +10,6 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-
-# =========================
-# STYLE
-# =========================
 
 AI_STYLE = """
 Tu gères mes conversations Telegram et tu dois écrire comme moi.
@@ -35,7 +26,7 @@ TON:
   "parfait", "ouii", "non", "att", "hihi", "ahah",
   "fak", "genre", "jvais", "jpeux", "ta", "tes".
 - Emojis fréquents mais pas à chaque phrase: 💕 ❤️ 😂 😉 😍
-- Généralement 1 à 3 messages courts plutôt qu'un gros paragraphe.
+- Réponses courtes adaptées à Telegram.
 
 STYLE DE VENTE:
 - Sois direct et confiant.
@@ -64,13 +55,9 @@ informations, prix ou offres. Réponds selon la conversation actuelle.
 """
 
 
-# =========================
-# OPENAI
-# =========================
-
-def generate_reply(message):
+def ask_ai(message):
     response = client.responses.create(
-        model="gpt-4.1-mini",
+        model="gpt-5-mini",
         instructions=AI_STYLE,
         input=message
     )
@@ -78,35 +65,11 @@ def generate_reply(message):
     return response.output_text.strip()
 
 
-# =========================
-# TELEGRAM
-# =========================
-
-def get_updates(offset=None):
-
-    params = {
-        "timeout": 30
-    }
-
-    if offset is not None:
-        params["offset"] = offset
-
-    response = requests.get(
-        f"{TELEGRAM_API}/getUpdates",
-        params=params,
-        timeout=40
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
-
-def send_message(chat_id, text):
-
+def send_business_message(chat_id, business_connection_id, text):
     response = requests.post(
         f"{TELEGRAM_API}/sendMessage",
         json={
+            "business_connection_id": business_connection_id,
             "chat_id": chat_id,
             "text": text
         },
@@ -116,50 +79,68 @@ def send_message(chat_id, text):
     response.raise_for_status()
 
 
-# =========================
-# BOT PRINCIPAL
-# =========================
-
 def main():
 
-    print("Bot Telegram démarré.", flush=True)
+    print("Secretary bot demarre.", flush=True)
 
-    offset = None
+    offset = 0
 
     while True:
 
         try:
 
-            data = get_updates(offset)
+            response = requests.get(
+                f"{TELEGRAM_API}/getUpdates",
+                params={
+                    "offset": offset,
+                    "timeout": 30,
+                    "allowed_updates": '["business_message"]'
+                },
+                timeout=40
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
 
             for update in data.get("result", []):
 
                 offset = update["update_id"] + 1
 
-                message = update.get("message")
+                message = update.get("business_message")
 
                 if not message:
                     continue
 
-                text = message.get("text")
-                chat_id = message.get("chat", {}).get("id")
-
-                if not text or not chat_id:
+                # Ignore les messages envoyés par des bots
+                if message.get("from", {}).get("is_bot"):
                     continue
 
+                text = message.get("text")
+
+                if not text:
+                    continue
+
+                chat_id = message["chat"]["id"]
+                business_connection_id = message["business_connection_id"]
+
                 print(
-                    f"Message reçu ({chat_id}): {text}",
+                    f"Message Business reçu: {text}",
                     flush=True
                 )
 
-                reply = generate_reply(text)
+                answer = ask_ai(text)
 
                 print(
-                    f"Réponse générée: {reply}",
+                    f"Réponse: {answer}",
                     flush=True
                 )
 
-                send_message(chat_id, reply)
+                send_business_message(
+                    chat_id,
+                    business_connection_id,
+                    answer
+                )
 
         except Exception as error:
 
@@ -170,10 +151,6 @@ def main():
 
             time.sleep(5)
 
-
-# =========================
-# DÉMARRAGE
-# =========================
 
 if __name__ == "__main__":
     main()
