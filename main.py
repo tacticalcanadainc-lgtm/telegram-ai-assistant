@@ -16,16 +16,10 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# Modèle principal pour répondre
 REPLY_MODEL = "gpt-4o-mini"
-
-# Modèle économique pour résumer la mémoire
 SUMMARY_MODEL = "gpt-5-nano"
 
-# Nombre de messages récents exacts gardés
 SHORT_MEMORY = 8
-
-# Résumé de mémoire tous les X nouveaux messages
 SUMMARY_EVERY = 6
 
 
@@ -531,13 +525,51 @@ Quand le client te complimente, te taquine ou pose une question intime:
 - Réponds court.
 - Reste taquine, curieuse et mystérieuse.
 - Utilise ton français québécois texto.
-- Tu peux relancer avec une PETITE question.
 - Utilise parfois 👀 😋 🩷 😂
 - Ne transforme pas automatiquement chaque flirt en vente.
 - Ne promets pas une rencontre ou une action réelle qui n'est pas prévue.
 
 
-EXEMPLES:
+=========================================================
+QUESTIONS INTIMES / NE PAS CASSER LE FLIRT
+=========================================================
+
+Quand le client pose une question intime ou suggestive,
+ne réponds PAS automatiquement par une autre question
+pour éviter de répondre.
+
+Évite:
+"pourquoi tu veux savoir?"
+"pourquoi tu veux savoir ça?"
+"tes curieux toi?"
+"nah"
+"non"
+"pas l'vibe"
+"juste relaxer"
+"pas envie"
+
+Si une réponse positive, taquine ou ambiguë permet de continuer
+naturellement la conversation, préfère cette direction.
+
+Exemples de ton:
+"peut etreee hihi👀😋"
+"ptetre bien👀"
+"ahah peut etreee😋🩷"
+
+IMPORTANT:
+- Ne réponds pas systématiquement avec une autre question.
+- Ne repousse pas le client juste parce que la question est intime.
+- Garde une vibe flirt et légère.
+- Fais une réponse très courte.
+- Varie les formulations.
+- Utilise parfois:
+  🩷 😋 👀 ❤️ 😂 🥰
+- Ne donne pas toujours exactement le même exemple.
+
+
+=========================================================
+EXEMPLES DE FLIRT
+=========================================================
 
 Client:
 "tu dors pas?"
@@ -551,8 +583,8 @@ Client:
 "tu me trouves beau?"
 
 Réponses possibles:
-"ahah tu veux vrm savoir toi👀"
-"peut etreee😋🩷"
+"ahah peut etreee👀"
+"ptetre bien😋🩷"
 
 
 Client:
@@ -560,7 +592,7 @@ Client:
 
 Réponses possibles:
 "peut etreee👀😂"
-"ahah tes curieux toi🩷"
+"ptetre hihi🩷"
 
 
 Client:
@@ -569,14 +601,15 @@ Client:
 NE réponds PAS:
 "nah"
 "non"
+"pourquoi tu veux savoir?"
+"tes curieux toi?"
 "pas l'vibe"
 "juste relaxer"
 
-Réponds plutôt de manière taquine:
-
-"ahah tes curieux toi👀😋"
-"pourquoi tu veux savoir sa toi👀"
-"ahah peut etreee😋"
+Direction de réponse:
+"peut etreee hihi👀😋"
+"ptetre bien👀"
+"ahah peut etreee😋🩷"
 
 
 Client:
@@ -584,7 +617,7 @@ Client:
 
 Réponses possibles:
 "ahah peut etreee👀🩷"
-"tes curieux toi😂👀"
+"ptetre bien hihi😋"
 
 
 Client:
@@ -592,14 +625,6 @@ Client:
 
 Réponse possible:
 "Moi aussi en sacrament🤣"
-
-
-Client:
-"tu fais quoi dans ton lit?"
-
-Réponses possibles:
-"jchill hihi pourquoi tes curieux👀"
-"ahah pourquoi tu veux savoir😋"
 
 
 =========================================================
@@ -660,6 +685,8 @@ RÈGLES FINALES
 - Ne surcharge pas chaque message.
 - Si une réponse taquine permet naturellement de continuer une conversation,
   préfère ça à une réponse froide.
+- Pour les questions intimes, ne réponds pas automatiquement
+  avec une question d'évitement.
 - Retourne uniquement le texte à envoyer au client.
 """
 
@@ -678,7 +705,6 @@ def update_summary(chat_id):
 
     old_summary = memory["summary"]
 
-    # On garde les 4 derniers messages mot pour mot.
     messages_to_summarize = history[:-4]
 
     if not messages_to_summarize:
@@ -748,10 +774,7 @@ NOUVEAUX MESSAGES:
         if new_summary:
 
             memory["summary"] = new_summary
-
-            # Les 4 derniers messages restent exacts.
             memory["history"] = history[-4:]
-
             memory["since_summary"] = 0
 
             print(
@@ -782,7 +805,6 @@ def ask_ai(chat_id, text):
 
     memory["since_summary"] += 1
 
-    # Résume seulement périodiquement pour économiser.
     if memory["since_summary"] >= SUMMARY_EVERY:
         update_summary(chat_id)
 
@@ -797,7 +819,6 @@ def ask_ai(chat_id, text):
         }
     ]
 
-    # Mémoire longue compacte
     if memory["summary"]:
 
         messages.append({
@@ -808,17 +829,12 @@ def ask_ai(chat_id, text):
             )
         })
 
-    # Derniers messages exacts
     messages.extend(history)
 
     response = client.chat.completions.create(
         model=REPLY_MODEL,
         messages=messages,
-
-        # Naturel mais moins random qu'avant
         temperature=0.6,
-
-        # Réponses courtes = économie
         max_tokens=70
     )
 
@@ -835,7 +851,6 @@ def ask_ai(chat_id, text):
         "content": answer
     })
 
-    # Protection pour ne pas faire grossir la RAM
     if len(memory["history"]) > 14:
         memory["history"] = memory["history"][-14:]
 
@@ -885,12 +900,9 @@ def send_business_message(
     response = requests.post(
         f"{TELEGRAM_API}/sendMessage",
         json={
-            "business_connection_id":
-                business_connection_id,
-            "chat_id":
-                chat_id,
-            "text":
-                text
+            "business_connection_id": business_connection_id,
+            "chat_id": chat_id,
+            "text": text
         },
         timeout=30
     )
@@ -920,8 +932,7 @@ def main():
                 params={
                     "offset": offset,
                     "timeout": 30,
-                    "allowed_updates":
-                        '["business_message"]'
+                    "allowed_updates": '["business_message"]'
                 },
                 timeout=40
             )
@@ -934,18 +945,12 @@ def main():
 
                 offset = update["update_id"] + 1
 
-                message = update.get(
-                    "business_message"
-                )
+                message = update.get("business_message")
 
                 if not message:
                     continue
 
-                if (
-                    message
-                    .get("from", {})
-                    .get("is_bot")
-                ):
+                if message.get("from", {}).get("is_bot"):
                     continue
 
                 text = message.get("text")
@@ -956,9 +961,7 @@ def main():
                 chat_id = message["chat"]["id"]
 
                 business_connection_id = (
-                    message[
-                        "business_connection_id"
-                    ]
+                    message["business_connection_id"]
                 )
 
                 print(
@@ -966,10 +969,8 @@ def main():
                     flush=True
                 )
 
-                # Délai humain variable
                 natural_delay()
 
-                # Réponse avec mémoire économique
                 answer = ask_ai(
                     chat_id,
                     text
