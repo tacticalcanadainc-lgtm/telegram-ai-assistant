@@ -16,17 +16,16 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# Modèle qui parle aux clients
+# Modèle principal
 REPLY_MODEL = "gpt-4o-mini"
 
-# Modèle très économique utilisé seulement pour résumer la mémoire
+# Modèle économique pour résumer la mémoire
 SUMMARY_MODEL = "gpt-5-nano"
 
-# Nombre de messages récents exacts envoyés à l'IA
+# Nombre de messages récents gardés exactement
 SHORT_MEMORY = 8
 
-# Après environ combien de nouveaux messages client
-# on recompresse la mémoire
+# Résumé de la mémoire tous les X nouveaux messages
 SUMMARY_EVERY = 6
 
 
@@ -34,10 +33,6 @@ SUMMARY_EVERY = 6
 # MÉMOIRE
 # =========================================================
 
-# Chaque client possède:
-# - summary = résumé de l'ancienne conversation
-# - history = derniers messages exacts
-# - since_summary = compteur
 conversation_memory = {}
 
 
@@ -95,6 +90,36 @@ IMPORTANT:
 - N'invente jamais une disponibilité.
 - Garde les réponses naturelles.
 - Retourne seulement le texte à envoyer.
+
+
+=========================================================
+SALUTATIONS
+=========================================================
+
+Quand quelqu'un dit simplement:
+"coucou"
+"coucou babe"
+"salut"
+"allo"
+"allô"
+"hey"
+"heyy"
+"hello"
+"yo"
+
+Réponds avec une salutation très courte et naturelle.
+
+Exemples:
+"coucouu🩷"
+"alloo babe😋"
+"heyy🩷"
+"coucou bb🥰"
+"allooo😇"
+
+Ne réponds pas:
+"quoi de neuf coucou"
+
+Ne répète pas bizarrement la salutation du client.
 
 
 =========================================================
@@ -188,10 +213,35 @@ MENU ET PRIX
 
 N'invente jamais un autre prix.
 
-Si quelqu'un demande le menu ou demande:
+
+=========================================================
+DEMANDE DE CONTENU
+=========================================================
+
+Si quelqu'un demande:
+"tu fais quoi comme contenu?"
+"ta quoi comme contenu?"
 "ta quoi?"
-"ta quoi comme videos?"
-Présente brièvement les options disponibles.
+"tu vend quoi?"
+"tu propose quoi?"
+"ta quoi comme vidéos?"
+"c quoi ton contenu?"
+"tu fais quel genre de contenu?"
+"tu as quoi de disponible?"
+"montre moi ton menu"
+ou quelque chose qui veut dire la même chose,
+
+réponds avec ce message:
+
+"J'ai des sextapes / J'ai des videos anal🤪 videos en legging de gym que je ride un dildo apres le gym, ✨, vid en missionaire/ dildo, doggy, sur ma chaise gaming 😝 d'autre video que je suce un dildo avk mes seins etc hihi😋 pis chaque vidéos vien avec des photos😇"
+
+IMPORTANT:
+- Pour une demande générale sur le contenu, utilise le message ci-dessus.
+- Ne réponds pas seulement avec une liste de prix.
+- Ne donne pas automatiquement tous les prix.
+- Si le client demande ensuite "combien?", utilise le contexte pour déterminer de quelle option il parle.
+- Utilise ensuite le prix correspondant dans MENU ET PRIX.
+- N'invente jamais de prix.
 
 
 =========================================================
@@ -220,11 +270,12 @@ Prix SnapSnap:
 
 La personne peut garder les vidéos dans votre conversation Snap après.
 
-Si la conversation parle de SnapSnap et que la personne demande ensuite:
+Si la conversation parle de SnapSnap et que la personne demande:
 "combien?"
 "prix?"
 "c combien?"
-Réponds naturellement autour de:
+
+Réponds:
 "80$ et tu peux garder les vid sur notre convo snap apres😋"
 
 
@@ -244,7 +295,7 @@ CAMCAM
 =========================================================
 
 Si on demande si tu fais CamCam:
-Réponds naturellement:
+Réponds:
 "ouii mais plus chère et faut tu mavertisse davance😁🩷 pis jte dirai si jsuis dispo"
 
 Prix:
@@ -299,7 +350,7 @@ Si quelqu'un demande:
 ET que le contexte parle du paiement,
 donne les informations Interac.
 
-Exemple naturel:
+Exemple:
 
 "interac bb🩷
 bbpeach26@gmail.com
@@ -315,14 +366,13 @@ IMPORTANT:
 
 Si quelqu'un demande:
 "tu envoie sa ou?"
-et que le sujet est le CONTENU,
+et que le sujet est le contenu,
 réponds:
 "Ouii jenvoie sa iciii xx"
 
-Utilise le contexte pour ne jamais confondre:
-- où le CLIENT envoie le paiement
-avec
-- où TU envoies le contenu.
+Utilise le contexte pour différencier:
+- où le client envoie le paiement
+- où le contenu est envoyé
 
 
 =========================================================
@@ -354,15 +404,12 @@ Tu reçois:
 
 Utilise LES DEUX.
 
-Le résumé contient des faits importants sur ce client.
-Ne l'ignore jamais.
-
-Les derniers messages servent à comprendre exactement
-de quoi le client parle maintenant.
+Le résumé contient les faits importants sur ce client.
+Les derniers messages servent à comprendre ce dont il parle maintenant.
 
 Exemple:
 Client: "tu fais snapsnap?"
-Réponse: "ouii aussi mais plus chere👀"
+Assistant: "ouii aussi mais plus chere👀"
 Client: "combien?"
 
 Tu dois comprendre que "combien?" parle du SnapSnap.
@@ -378,23 +425,20 @@ etc.
 
 
 # =========================================================
-# RÉSUMÉ LONGUE MÉMOIRE
+# RÉSUMÉ DE LA MÉMOIRE
 # =========================================================
 
 def update_summary(chat_id):
 
     memory = get_memory(chat_id)
-
     history = memory["history"]
 
-    # Pas assez de contenu = pas besoin de payer pour un résumé
     if len(history) < 6:
         return
 
     old_summary = memory["summary"]
 
-    # On conserve les 4 messages les plus récents mot pour mot.
-    # Le reste part dans le résumé.
+    # Conserve les 4 messages les plus récents exactement
     messages_to_summarize = history[:-4]
 
     if not messages_to_summarize:
@@ -410,35 +454,35 @@ def update_summary(chat_id):
             else "ASSISTANT"
         )
 
-        transcript += (
-            f"{role}: {msg['content']}\n"
-        )
+        transcript += f"{role}: {msg['content']}\n"
 
     summary_instructions = """
 Résume cette conversation Telegram de façon ULTRA compacte.
 
-Le résumé sert de mémoire permanente à un assistant.
+Ce résumé sert de mémoire au bot.
 
-Garde seulement les informations utiles pour continuer logiquement:
+Conserve seulement ce qui est utile pour continuer logiquement:
+- sujet actuel
 - ce que le client veut
-- produits/services mentionnés
+- options mentionnées
 - prix déjà donnés
 - deals proposés
 - questions déjà répondues
-- préférences du client
+- préférences
 - décisions prises
 - mode de paiement
 - si le client dit avoir envoyé un paiement
 - ce qui doit encore être vérifié
-- promesses ou choses à faire plus tard
-- contexte nécessaire pour comprendre des phrases futures comme
-  "combien?", "celle-là", "où ça?", etc.
+- contexte nécessaire pour comprendre ensuite:
+  "combien?"
+  "celle-là"
+  "où ça?"
+  "oui"
+  etc.
 
-N'invente RIEN.
-
-Ne supprime pas un fait important contenu dans l'ancien résumé.
-
-Écris très compactement.
+N'invente rien.
+Ne supprime pas un fait important de l'ancien résumé.
+Sois extrêmement compact.
 Maximum environ 120 mots.
 """
 
@@ -446,7 +490,7 @@ Maximum environ 120 mots.
 ANCIEN RÉSUMÉ:
 {old_summary if old_summary else "Aucun"}
 
-NOUVEAUX MESSAGES À MÉMORISER:
+NOUVEAUX MESSAGES:
 {transcript}
 """
 
@@ -464,10 +508,7 @@ NOUVEAUX MESSAGES À MÉMORISER:
         if new_summary:
 
             memory["summary"] = new_summary
-
-            # On garde seulement la partie récente exacte.
             memory["history"] = history[-4:]
-
             memory["since_summary"] = 0
 
             print(
@@ -477,7 +518,6 @@ NOUVEAUX MESSAGES À MÉMORISER:
 
     except Exception as error:
 
-        # Si le résumé échoue, le bot continue quand même.
         print(
             f"Erreur resume memoire: {error}",
             flush=True
@@ -499,11 +539,9 @@ def ask_ai(chat_id, text):
 
     memory["since_summary"] += 1
 
-    # Résume seulement de temps en temps.
     if memory["since_summary"] >= SUMMARY_EVERY:
         update_summary(chat_id)
 
-    # Après le résumé, récupère la mémoire actualisée.
     memory = get_memory(chat_id)
 
     history = memory["history"][-SHORT_MEMORY:]
@@ -515,7 +553,6 @@ def ask_ai(chat_id, text):
         }
     ]
 
-    # Mémoire longue compacte
     if memory["summary"]:
 
         messages.append({
@@ -526,16 +563,17 @@ def ask_ai(chat_id, text):
             )
         })
 
-    # Mémoire courte exacte
     messages.extend(history)
 
     response = client.chat.completions.create(
         model=REPLY_MODEL,
         messages=messages,
-        temperature=0.8,
 
-        # Tes réponses sont courtes,
-        # donc pas besoin d'autoriser 500 tokens.
+        # Assez de variation pour rester naturel,
+        # sans partir dans des réponses trop random
+        temperature=0.6,
+
+        # Réponses volontairement courtes
         max_tokens=70
     )
 
@@ -552,8 +590,6 @@ def ask_ai(chat_id, text):
         "content": answer
     })
 
-    # Sécurité: évite qu'un bug fasse grossir
-    # l'historique indéfiniment avant le prochain résumé.
     if len(memory["history"]) > 14:
         memory["history"] = memory["history"][-14:]
 
@@ -591,7 +627,7 @@ def natural_delay():
 
 
 # =========================================================
-# ENVOYER MESSAGE TELEGRAM BUSINESS
+# TELEGRAM BUSINESS
 # =========================================================
 
 def send_business_message(
@@ -603,12 +639,9 @@ def send_business_message(
     response = requests.post(
         f"{TELEGRAM_API}/sendMessage",
         json={
-            "business_connection_id":
-                business_connection_id,
-            "chat_id":
-                chat_id,
-            "text":
-                text
+            "business_connection_id": business_connection_id,
+            "chat_id": chat_id,
+            "text": text
         },
         timeout=30
     )
@@ -638,8 +671,7 @@ def main():
                 params={
                     "offset": offset,
                     "timeout": 30,
-                    "allowed_updates":
-                        '["business_message"]'
+                    "allowed_updates": '["business_message"]'
                 },
                 timeout=40
             )
@@ -648,27 +680,18 @@ def main():
 
             data = response.json()
 
-            for update in data.get(
-                "result",
-                []
-            ):
+            for update in data.get("result", []):
 
-                offset = (
-                    update["update_id"] + 1
-                )
+                offset = update["update_id"] + 1
 
-                message = update.get(
-                    "business_message"
-                )
+                message = update.get("business_message")
 
                 if not message:
                     continue
 
-                if (
-                    message
-                    .get("from", {})
-                    .get("is_bot")
-                ):
+                if message.get(
+                    "from", {}
+                ).get("is_bot"):
                     continue
 
                 text = message.get("text")
@@ -676,14 +699,10 @@ def main():
                 if not text:
                     continue
 
-                chat_id = (
-                    message["chat"]["id"]
-                )
+                chat_id = message["chat"]["id"]
 
                 business_connection_id = (
-                    message[
-                        "business_connection_id"
-                    ]
+                    message["business_connection_id"]
                 )
 
                 print(
@@ -691,11 +710,11 @@ def main():
                     flush=True
                 )
 
-                # Délai humain variable
+                # Délai variable
                 natural_delay()
 
                 # Réponse avec mémoire courte
-                # + mémoire longue résumée
+                # + résumé de la mémoire longue
                 answer = ask_ai(
                     chat_id,
                     text
