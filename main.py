@@ -31,6 +31,10 @@ conversation_history = {}
 processed_messages = set()
 processed_updates = set()
 
+# Compteur séparé par client pour faire
+# emoji / pas emoji / emoji / pas emoji...
+emoji_counters = {}
+
 
 def get_history(chat_id):
     if chat_id not in conversation_history:
@@ -128,18 +132,22 @@ Mais pas dans chaque réponse.
 
 Si une petite réaction suffit, fais juste une petite réaction.
 
-Exemples de petites réactions possibles:
-"ouin"
+Parfois une petite réaction suffit:
+
+"ouin😂"
 "ah ouin"
+"damn"
 "j'avoue"
 "ahah"
 "same"
+"ouii"
+"wtf😂"
 "ark"
-"damn"
+"ça gosse"
 "fak ouin"
 
 IMPORTANT:
-Ces exemples montrent le STYLE seulement.
+Ces exemples montrent seulement le STYLE.
 Ne les utilise jamais si ça ne répond pas vraiment au message.
 
 LOGIQUE:
@@ -153,21 +161,24 @@ alors ne l'envoie pas.
 Ne réponds jamais "peut-être" à une question où "peut-être" n'a aucun sens.
 
 Ne retourne jamais automatiquement un compliment.
-Si quelqu'un dit "t'es belle", ne réponds pas "toi aussi" sauf si tu as
-réellement une information qui le justifie.
+
+Si quelqu'un dit:
+"t'es belle"
+
+ne réponds pas:
+"toi aussi"
+
+sauf si tu as réellement une information qui le justifie.
 
 Ne prétends jamais avoir vu quelque chose qui n'a pas été montré.
 
 Si quelqu'un dit:
 "je fais des tacos"
+
 ne dis pas:
 "ça a l'air bon"
-si aucune photo n'a été envoyée.
 
-EMOJIS:
-- environ 1 réponse sur 2
-- pas d'emoji obligatoire
-- max 1 emoji la plupart du temps
+si aucune photo n'a été envoyée.
 
 INFOS PERSONNELLES:
 - ville: Mont-Tremblant
@@ -289,29 +300,46 @@ def fixed_reply(chat_id, text):
 
 
     # -----------------------------------------------------
-    # MENU / CONTENU
+    # MENU / CONTENU — PRIORITÉ ABSOLUE
     # -----------------------------------------------------
 
-    menu_phrases = [
-        "cest quoi ton menu",
-        "c quoi ton menu",
-        "ton menu",
-        "ta quoi comme contenu",
-        "tas quoi comme contenu",
-        "tu fais quoi comme contenu",
-        "tu propose quoi",
-        "tu proposes quoi",
-        "ta quoi comme video",
-        "ta quoi comme videos",
-        "tu vend quoi",
-        "tu vends quoi",
-        "quel genre de contenu",
-        "envoie ton menu",
-        "voir ton menu",
-        "tu as quoi comme contenu"
+    menu_words = [
+        "contenu",
+        "contenue",
+        "menu",
+        "video",
+        "videos",
     ]
 
-    if any(x in t for x in menu_phrases):
+    menu_intent = [
+        "ta quoi",
+        "tas quoi",
+        "t as quoi",
+        "tu as quoi",
+        "tu fais quoi",
+        "tu fait quoi",
+        "tu fais du",
+        "tu fait du",
+        "tu propose quoi",
+        "tu proposes quoi",
+        "tu vend quoi",
+        "tu vends quoi",
+        "quel genre",
+        "cest quoi",
+        "c quoi",
+        "montre moi",
+        "envoie",
+    ]
+
+    asks_about_content = (
+        "menu" in t
+        or (
+            any(word in t for word in menu_words)
+            and any(intent in t for intent in menu_intent)
+        )
+    )
+
+    if asks_about_content:
         return MENU_MESSAGE
 
 
@@ -520,14 +548,26 @@ def fixed_reply(chat_id, text):
 
 
 # =========================================================
-# EMOJI 50/50
+# EMOJI EXACTEMENT 1 RÉPONSE SUR 2
 # =========================================================
 
-def emoji_instruction():
-    if random.random() < 0.5:
-        return "Pour cette réponse, tu peux utiliser maximum 1 emoji si ça fit."
+def emoji_instruction(chat_id):
+    count = emoji_counters.get(chat_id, 0)
+
+    emoji_counters[chat_id] = count + 1
+
+    if count % 2 == 0:
+        return """
+POUR CETTE RÉPONSE:
+Tu DOIS utiliser exactement 1 emoji naturel.
+Choisis l'emoji selon le contexte.
+Ne mets pas toujours le même.
+"""
     else:
-        return "Pour cette réponse, n'utilise aucun emoji."
+        return """
+POUR CETTE RÉPONSE:
+N'utilise AUCUN emoji.
+"""
 
 
 # =========================================================
@@ -551,7 +591,7 @@ def ask_ai(chat_id, text):
         },
         {
             "role": "system",
-            "content": emoji_instruction()
+            "content": emoji_instruction(chat_id)
         }
     ]
 
@@ -561,7 +601,7 @@ def ask_ai(chat_id, text):
         model=REPLY_MODEL,
         messages=messages,
 
-        # Bas = beaucoup moins random
+        # Bas = plus logique / moins random
         temperature=0.15,
 
         max_tokens=60
