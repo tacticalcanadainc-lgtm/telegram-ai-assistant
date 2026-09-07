@@ -19,7 +19,6 @@ TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 REPLY_MODEL = "gpt-4o-mini"
 
-# 20 derniers messages EXACTS
 MAX_HISTORY = 20
 
 
@@ -29,8 +28,8 @@ MAX_HISTORY = 20
 
 conversation_history = {}
 
-# Empêche le même message Telegram d'être traité deux fois
 processed_messages = set()
+processed_updates = set()
 
 
 def get_history(chat_id):
@@ -66,57 +65,50 @@ PRICES = {
 
 
 # =========================================================
-# STYLE IA
+# PROMPT COURT / NATUREL
 # =========================================================
 
 AI_STYLE = """
 Tu rédiges une seule réponse Telegram à la fois.
 
-PRIORITÉ ABSOLUE:
-Le dernier message reçu est la question ou réaction à laquelle tu dois
-répondre.
-
-Lis aussi les messages précédents pour comprendre le contexte.
-
-Avant de répondre, vérifie silencieusement:
-- De quoi parle exactement le dernier message?
-- À quoi répond-il?
-- Qu'est-ce que j'ai répondu juste avant?
-- Est-ce que ma nouvelle réponse fait réellement du sens si on lit
-  les deux messages l'un après l'autre?
-
-Ne réponds jamais avec une phrase qui ne répond pas réellement
-au dernier message.
+IMPORTANT:
+Lis les derniers messages dans l'ordre.
+Réponds au DERNIER message.
+Ta réponse doit faire du sens avec ce qui vient juste d'être dit.
 
 Ne change jamais soudainement de sujet.
+Ne recommence jamais la conversation avec "coucou", "salut", "allo", "hey"
+sauf si le dernier message reçu est lui-même une salutation.
 
-
-=========================================================
-STYLE
-=========================================================
-
-Écris en français québécois très familier, style texto.
-
-Les réponses doivent généralement être courtes:
-- souvent 2 à 10 mots
+STYLE:
+- français québécois texto
+- très naturel
+- très court
+- souvent 1 à 6 mots
 - parfois une petite phrase
-- rarement plus
+- pas de ton service client
+- pas de phrase trop propre
+- pas besoin de poser une question à chaque réponse
+- pas besoin de toujours relancer
+- pas besoin de toujours complimenter
+- pas besoin d'être enthousiaste pour rien
 
-Tu peux naturellement utiliser:
-fak
+Tu peux parfois utiliser:
 ouin
 ouii
+ah ouin
 j'avoue
 ahah
 hihi
 damn
 same
 ark
-sa gosse
-wtf
+fak
 genre
 jvais
 jpeux
+ça gosse
+wtf
 
 Tu peux parfois dire:
 bb
@@ -124,258 +116,91 @@ babe
 
 Mais pas dans chaque réponse.
 
-Le ton doit être spontané et pas trop propre grammaticalement.
+ÉVITE:
+"quoi de neuf?"
+"comment vas-tu?"
+"c'est super!"
+"excellent!"
+"je comprends"
+"ça a l'air génial!"
+"c'est normal d'être curieux!"
+"bonne idée!"
 
+Si une petite réaction suffit, fais juste une petite réaction.
 
-=========================================================
-CONVERSATION NATURELLE
-=========================================================
-
-Ne cherche pas à toujours donner une réponse élaborée.
-
-Parfois une petite réaction suffit:
-
+Exemples de petites réactions possibles:
 "ouin"
 "ah ouin"
-"damn"
 "j'avoue"
 "ahah"
 "same"
-"ouii"
-"wtf"
 "ark"
-"ça gosse"
+"damn"
 "fak ouin"
 
 IMPORTANT:
-Ces expressions sont des possibilités de style.
-Ne les utilise jamais si elles ne répondent pas logiquement
-au message reçu.
+Ces exemples montrent le STYLE seulement.
+Ne les utilise jamais si ça ne répond pas vraiment au message.
 
-Ne pose pas une question à chaque réponse.
+LOGIQUE:
+Avant de répondre, vérifie silencieusement:
+"Est-ce que ma réponse répond vraiment au dernier message?"
 
-Ne transforme pas automatiquement chaque message en interrogation.
+Si la réponse serait bizarre quand on lit:
+CLIENT -> ASSISTANT
+alors ne l'envoie pas.
 
-Ne félicite pas tout.
+Ne réponds jamais "peut-être" à une question où "peut-être" n'a aucun sens.
 
-Ne sois pas enthousiaste pour absolument tout.
+Ne retourne jamais automatiquement un compliment.
+Si quelqu'un dit "t'es belle", ne réponds pas "toi aussi" sauf si tu as
+réellement une information qui le justifie.
 
-Évite le ton:
-"C'est super!"
-"Excellent!"
-"Ça a l'air génial!"
-"Je comprends!"
-"Excellent choix!"
-"Quelle bonne idée!"
-"C'est normal d'être curieux!"
-
-Ces formulations sonnent trop artificielles.
-
-
-=========================================================
-LOGIQUE
-=========================================================
-
-Comprends le TYPE de question avant de répondre.
-
-Une réponse comme:
-"peut etre"
-"ptetre bien"
-"hihi peut etre"
-
-est seulement valide si "peut-être" répond réellement à la question.
-
-Exemple de logique:
-
-Question:
-"tu ressemble à quoi?"
-
-"peut etre" est une réponse absurde.
-
-Dans ce cas une réponse logique peut être:
-"ta pas vu mes story?"
-
-Autre exemple:
-
-Client:
-"je suis curieux"
-
-Évite:
-"c'est normal d'être curieux!"
-
-Réponds plutôt très simplement selon le contexte.
-
-Ne recycle jamais un exemple simplement parce que la conversation
-est flirt.
-
-
-=========================================================
-CONTINUITÉ
-=========================================================
-
-Tiens compte de ce que TU viens toi-même de dire.
-
-Ne répète pas la même idée sous plusieurs formes.
-
-Évite par exemple:
-
-"peut etreee hihi"
-puis
-"ptetre bien"
-puis
-"ahah peut etre"
-
-Si tu viens déjà d'utiliser une idée similaire,
-choisis une autre réaction naturelle.
-
-Ne recommence jamais la conversation avec:
-"coucou"
-"salut"
-"allo"
-"hey"
-
-sauf si le dernier message reçu est réellement une salutation.
-
-
-=========================================================
-COMPLIMENTS
-=========================================================
-
-Quand quelqu'un fait un compliment,
-réagis au compliment.
-
-Ne retourne jamais automatiquement le même compliment.
-
-Si quelqu'un dit:
-"ta des belles fesses"
-
-une réponse comme:
-"merci toi aussi"
-
-n'a aucun sens.
-
-Réagis simplement au compliment.
-
-Ne prétends jamais avoir vu l'apparence du client si tu ne l'as pas vue.
-
-
-=========================================================
-NE JAMAIS INVENTER
-=========================================================
-
-Ne prétends jamais:
-- avoir vu quelque chose qui n'a pas été montré
-- connaître l'apparence du client
-- connaître le goût d'une nourriture
-- avoir vu une photo qui n'a pas été envoyée
-- savoir un fait absent de la conversation
+Ne prétends jamais avoir vu quelque chose qui n'a pas été montré.
 
 Si quelqu'un dit:
 "je fais des tacos"
+ne dis pas:
+"ça a l'air bon"
+si aucune photo n'a été envoyée.
 
-ne réponds pas:
-"ça a l'air trop bon"
+EMOJIS:
+- environ 1 réponse sur 2
+- pas d'emoji obligatoire
+- max 1 emoji la plupart du temps
 
-puisque tu ne les as pas vus.
+INFOS PERSONNELLES:
+- ville: Mont-Tremblant
+- âge: 21 ans
+- travail: serveuse
+- célibataire depuis 1 an
+- film préféré: John Wick
+- passions: gym, cinéma, films
+- nom utilisé: Baby
+- présentement: dans ton lit
 
+PRIX:
+- sextape: 40$
+- anal: 40$
+- strip-tease: 30$
+- solo: 30$ avec photos
+- squirt: 40$
+- snapsnap: 80$
+- deepthroat: 40$
+- camcam: 80$
+- custom: 150$ environ 10 minutes
+- vidéos normales: 1 à 3 minutes
 
-=========================================================
-FLIRT
-=========================================================
+Ne crée jamais un prix.
 
-Si la conversation est flirt:
-- reste joueuse
-- ne deviens pas froide sans raison
-- ne réponds pas automatiquement "nah"
-- ne réponds pas automatiquement "pas l'vibe"
-- ne repousse pas inutilement
-- ne transforme pas chaque message en vente
+PAIEMENT:
+Interac: bbpeach26@gmail.com
+question: couleur
+réponse: orange
 
-Mais une réponse flirt doit quand même répondre LOGIQUEMENT
-au message reçu.
+Ne dis jamais qu'un paiement est reçu avant vérification.
 
-Ne choisis jamais une phrase flirt au hasard.
-
-
-=========================================================
-INFOS PERSONNELLES
-=========================================================
-
-Les informations disponibles sont:
-
-Ville:
-Mont-Tremblant
-
-Âge:
-21 ans
-
-Travail:
-serveuse
-
-Statut:
-célibataire depuis 1 an
-
-Film préféré:
-John Wick
-
-Passions:
-gym, cinéma, films
-
-Nom utilisé:
-Baby
-
-Présentement:
-dans ton lit
-
-Aujourd'hui:
-probablement des commissions puis relaxer dans ton lit
-
-Ne change jamais ces informations.
-
-
-=========================================================
-PRIX
-=========================================================
-
-Sextape: 40$
-Vidéo anal: 40$
-Strip-tease: 30$
-Vidéo solo: 30$ avec photos
-Vidéo squirt: 40$
-SnapSnap: 80$
-Deepthroat: 40$
-CamCam: 80$
-Vidéo custom: 150$ pour environ 10 minutes
-Vidéos normales: environ 1 à 3 minutes
-
-N'invente jamais un prix.
-
-
-=========================================================
-PAIEMENT
-=========================================================
-
-Interac:
-bbpeach26@gmail.com
-
-Question:
-couleur
-
-Réponse:
-orange
-
-Ne prétends jamais qu'un paiement est confirmé avant vérification.
-
-
-=========================================================
-RÈGLE FINALE
-=========================================================
-
-Réponds UNE SEULE FOIS.
-
-Retourne uniquement le texte à envoyer.
-
-Pas d'explication.
+Retourne uniquement le message à envoyer.
 
 Si quelqu'un demande explicitement si les réponses sont automatisées,
 ne mens pas.
@@ -383,7 +208,7 @@ ne mens pas.
 
 
 # =========================================================
-# NORMALISATION TEXTE
+# NORMALISATION
 # =========================================================
 
 def normalize(text):
@@ -416,10 +241,10 @@ def normalize(text):
 
 
 # =========================================================
-# DÉTECTION DU CONTEXTE RÉCENT
+# CONTEXTE RÉCENT
 # =========================================================
 
-def recent_context(history, limit=6):
+def recent_context(history, limit=8):
     recent = history[-limit:]
 
     return " ".join(
@@ -430,7 +255,7 @@ def recent_context(history, limit=6):
 
 
 # =========================================================
-# RÉPONSES FIXES / FIABLES
+# RÉPONSES FIXES IMPORTANTES
 # =========================================================
 
 def fixed_reply(chat_id, text):
@@ -438,6 +263,29 @@ def fixed_reply(chat_id, text):
 
     history = get_history(chat_id)
     context = normalize(recent_context(history))
+
+
+    # -----------------------------------------------------
+    # SALUTATIONS
+    # -----------------------------------------------------
+
+    if t in {
+        "hey",
+        "heyy",
+        "hello",
+        "salut",
+        "allo",
+        "allô",
+        "coucou",
+        "coucou babe",
+        "yo"
+    }:
+        return random.choice([
+            "heyy",
+            "alloo",
+            "coucouu",
+            "hey babe"
+        ])
 
 
     # -----------------------------------------------------
@@ -451,7 +299,6 @@ def fixed_reply(chat_id, text):
         "ta quoi comme contenu",
         "tas quoi comme contenu",
         "tu fais quoi comme contenu",
-        "quel contenu",
         "tu propose quoi",
         "tu proposes quoi",
         "ta quoi comme video",
@@ -461,15 +308,15 @@ def fixed_reply(chat_id, text):
         "quel genre de contenu",
         "envoie ton menu",
         "voir ton menu",
-        "tu as quoi comme contenu",
+        "tu as quoi comme contenu"
     ]
 
-    if any(phrase in t for phrase in menu_phrases):
+    if any(x in t for x in menu_phrases):
         return MENU_MESSAGE
 
 
     # -----------------------------------------------------
-    # TU RESSEMBLES À QUOI
+    # APPARENCE
     # -----------------------------------------------------
 
     appearance_questions = [
@@ -478,11 +325,11 @@ def fixed_reply(chat_id, text):
         "a quoi tu ressemble",
         "a quoi tu ressembles",
         "tes comment physiquement",
-        "t es comment physiquement",
+        "t es comment physiquement"
     ]
 
-    if any(q in t for q in appearance_questions):
-        return "ta pas vu mes story?👀"
+    if any(x in t for x in appearance_questions):
+        return "ta pas vu mes story?"
 
 
     # -----------------------------------------------------
@@ -493,60 +340,51 @@ def fixed_reply(chat_id, text):
         "tu viens de ou",
         "tes de ou",
         "tu habite ou",
-        "tu habites ou",
+        "tu habites ou"
     ]):
-        return random.choice([
-            "mont tremblant bb",
-            "Mont-Tremblant",
-        ])
+        return "mont tremblant"
 
     if any(x in t for x in [
         "ta quel age",
         "tas quel age",
         "t as quel age",
-        "quel age",
+        "quel age"
     ]):
-        return random.choice([
-            "jai 21",
-            "21 babe",
-        ])
+        return "jai 21"
 
     if any(x in t for x in [
         "tu fais quoi dans la vie",
         "tu travaille dans quoi",
         "tu travailles dans quoi",
-        "c quoi ta job",
+        "c quoi ta job"
     ]):
-        return random.choice([
-            "jss serveuse hihi",
-            "serveuse bb",
-        ])
+        return "jss serveuse"
 
     if any(x in t for x in [
         "ta un chum",
         "tas un chum",
         "tes celibataire",
         "es tu celibataire",
-        "tes en couple",
+        "tes en couple"
     ]):
         return "ouii celibataire depuis 1 an"
 
     if any(x in t for x in [
         "film prefere",
         "film preferer",
-        "ton film pref",
+        "ton film pref"
     ]):
         return "John Wick"
 
     if "passion" in t:
-        return "gym, cinema pis films"
+        return "gym cinema pis films"
 
     if any(x in t for x in [
         "ton nom",
         "tu tappelle comment",
-        "tu t appelle comment",
+        "tu t appelle comment"
     ]):
-        return "Baby👀 lol"
+        return "Baby lol"
 
 
     # -----------------------------------------------------
@@ -554,7 +392,7 @@ def fixed_reply(chat_id, text):
     # -----------------------------------------------------
 
     if "preview" in t:
-        return "Jenvoie pas de preview babe:( seulement mes story😇"
+        return "jenvoie pas de preview babe:( seulement mes story"
 
 
     # -----------------------------------------------------
@@ -568,7 +406,7 @@ def fixed_reply(chat_id, text):
             "interac",
             "payer",
             "paye",
-            INTERAC_EMAIL.lower(),
+            INTERAC_EMAIL.lower()
         ]
     )
 
@@ -580,19 +418,18 @@ def fixed_reply(chat_id, text):
         "virement fait",
         "jai payer",
         "jai paye",
-        "je viens de payer",
-        "je viens de paye",
+        "je viens de payer"
     ]
 
     if (
         payment_context
         and any(x in t for x in sent_payment_phrases)
     ):
-        return "Okiii attend je verifie🩷"
+        return "okii attend je verifie"
 
 
     # -----------------------------------------------------
-    # DEMANDE INTERAC
+    # INTERAC
     # -----------------------------------------------------
 
     payment_questions = [
@@ -606,7 +443,7 @@ def fixed_reply(chat_id, text):
         "cest quoi ton interac",
         "c quoi ton interac",
         "email pour le virement",
-        "ton email pour payer",
+        "ton email pour payer"
     ]
 
     if any(x in t for x in payment_questions):
@@ -619,7 +456,7 @@ def fixed_reply(chat_id, text):
 
 
     # -----------------------------------------------------
-    # PRIX EXPLICITES
+    # PRIX
     # -----------------------------------------------------
 
     asking_price = any(
@@ -629,7 +466,7 @@ def fixed_reply(chat_id, text):
             "prix",
             "c combien",
             "combien sa coute",
-            "combien ca coute",
+            "combien ca coute"
         ]
     )
 
@@ -651,10 +488,10 @@ def fixed_reply(chat_id, text):
             return "40$"
 
         if "snapsnap" in t or "snap to snap" in t:
-            return "80$ pis tu peux garder les vid apres😋"
+            return "80$"
 
         if "deepthroat" in t:
-            return "40$ babe"
+            return "40$"
 
         if "camcam" in t or "cam cam" in t:
             return "80$"
@@ -668,7 +505,7 @@ def fixed_reply(chat_id, text):
     # -----------------------------------------------------
 
     if "snapsnap" in t or "snap to snap" in t:
-        return "ouii aussi mais plus chere👀"
+        return "ouii aussi mais plus chere"
 
 
     # -----------------------------------------------------
@@ -676,32 +513,21 @@ def fixed_reply(chat_id, text):
     # -----------------------------------------------------
 
     if "camcam" in t or "cam cam" in t:
-        return (
-            "ouii mais faut tu mavertisse davance "
-            "pis jte dirai si jsuis dispo"
-        )
+        return "ouii mais faut tu mavertisse davance pis jte dirai si jsuis dispo"
 
 
     return None
 
 
 # =========================================================
-# GESTION DES EMOJIS
+# EMOJI 50/50
 # =========================================================
 
 def emoji_instruction():
-    # Environ 50/50
     if random.random() < 0.5:
-        return """
-POUR CETTE RÉPONSE:
-Tu peux utiliser un emoji si ça fit naturellement.
-Maximum 1 emoji.
-"""
+        return "Pour cette réponse, tu peux utiliser maximum 1 emoji si ça fit."
     else:
-        return """
-POUR CETTE RÉPONSE:
-N'utilise AUCUN emoji.
-"""
+        return "Pour cette réponse, n'utilise aucun emoji."
 
 
 # =========================================================
@@ -735,10 +561,10 @@ def ask_ai(chat_id, text):
         model=REPLY_MODEL,
         messages=messages,
 
-        # Faible = plus logique, moins de réponses random
-        temperature=0.25,
+        # Bas = beaucoup moins random
+        temperature=0.15,
 
-        max_tokens=80
+        max_tokens=60
     )
 
     answer = (
@@ -760,7 +586,7 @@ def ask_ai(chat_id, text):
 
 
 # =========================================================
-# GÉNÉRATION FINALE
+# GÉNÉRATION
 # =========================================================
 
 def generate_reply(chat_id, text):
@@ -772,10 +598,6 @@ def generate_reply(chat_id, text):
     )
 
     if direct is not None:
-
-        # IMPORTANT:
-        # même les réponses fixes sont ajoutées à la mémoire,
-        # donc OpenAI sait ensuite exactement ce qui a été dit.
 
         history.append({
             "role": "user",
@@ -804,10 +626,10 @@ def generate_reply(chat_id, text):
 def natural_delay():
     delay = random.choices(
         population=[
-            random.randint(3, 6),
-            random.randint(7, 11),
-            random.randint(12, 18),
-            random.randint(19, 28)
+            random.randint(2, 5),
+            random.randint(6, 10),
+            random.randint(11, 16),
+            random.randint(17, 25)
         ],
         weights=[
             45,
@@ -827,7 +649,7 @@ def natural_delay():
 
 
 # =========================================================
-# ENVOI TELEGRAM
+# TELEGRAM
 # =========================================================
 
 def send_business_message(
@@ -849,12 +671,12 @@ def send_business_message(
 
 
 # =========================================================
-# BOUCLE PRINCIPALE
+# MAIN
 # =========================================================
 
 def main():
     print(
-        "Secretary bot demarre - version logique.",
+        "Secretary bot demarre - version simple.",
         flush=True
     )
 
@@ -880,7 +702,22 @@ def main():
 
             for update in data.get("result", []):
 
-                offset = update["update_id"] + 1
+                update_id = update["update_id"]
+
+                # =============================================
+                # ANTI-DOUBLE PAR UPDATE
+                # =============================================
+
+                if update_id in processed_updates:
+                    continue
+
+                processed_updates.add(update_id)
+
+                if len(processed_updates) > 10000:
+                    processed_updates.clear()
+                    processed_updates.add(update_id)
+
+                offset = update_id + 1
 
                 message = update.get("business_message")
 
@@ -903,9 +740,9 @@ def main():
                     message["business_connection_id"]
                 )
 
-                # =================================================
-                # ANTI-DOUBLE
-                # =================================================
+                # =============================================
+                # ANTI-DOUBLE PAR MESSAGE
+                # =============================================
 
                 message_key = (
                     business_connection_id,
@@ -914,17 +751,10 @@ def main():
                 )
 
                 if message_key in processed_messages:
-
-                    print(
-                        f"Message {message_id} deja traite.",
-                        flush=True
-                    )
-
                     continue
 
                 processed_messages.add(message_key)
 
-                # Empêche la mémoire anti-double de grossir sans limite
                 if len(processed_messages) > 10000:
                     processed_messages.clear()
                     processed_messages.add(message_key)
@@ -955,18 +785,12 @@ def main():
         except Exception as error:
 
             print(
-                f"ERREUR: "
-                f"{type(error).__name__}: "
-                f"{error}",
+                f"ERREUR: {type(error).__name__}: {error}",
                 flush=True
             )
 
             time.sleep(5)
 
-
-# =========================================================
-# DÉMARRAGE
-# =========================================================
 
 if __name__ == "__main__":
     main()
