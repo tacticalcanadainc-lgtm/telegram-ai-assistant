@@ -31,8 +31,7 @@ conversation_history = {}
 processed_messages = set()
 processed_updates = set()
 
-# Compteur séparé par client pour faire
-# emoji / pas emoji / emoji / pas emoji...
+# Compteur emoji séparé pour chaque conversation
 emoji_counters = {}
 
 
@@ -96,6 +95,7 @@ STYLE:
 - pas besoin de toujours relancer
 - pas besoin de toujours complimenter
 - pas besoin d'être enthousiaste pour rien
+- chaleureux et spontané
 
 Tu peux parfois utiliser:
 ouin
@@ -130,8 +130,6 @@ Mais pas dans chaque réponse.
 "c'est normal d'être curieux!"
 "bonne idée!"
 
-Si une petite réaction suffit, fais juste une petite réaction.
-
 Parfois une petite réaction suffit:
 
 "ouin😂"
@@ -162,23 +160,28 @@ Ne réponds jamais "peut-être" à une question où "peut-être" n'a aucun sens.
 
 Ne retourne jamais automatiquement un compliment.
 
-Si quelqu'un dit:
-"t'es belle"
-
-ne réponds pas:
-"toi aussi"
-
-sauf si tu as réellement une information qui le justifie.
-
 Ne prétends jamais avoir vu quelque chose qui n'a pas été montré.
 
-Si quelqu'un dit:
-"je fais des tacos"
 
-ne dis pas:
-"ça a l'air bon"
+PONCTUATION:
+- Évite les points "." à la fin des messages
+- Écris comme dans une vraie conversation texto
+- Termine généralement sans ponctuation
+- Utilise ? seulement pour une vraie question
+- Utilise ! seulement quand ça fit naturellement
+- Ne mets jamais un point final juste pour être grammaticalement correct
 
-si aucune photo n'a été envoyée.
+
+EMOJIS:
+- Utilise des emojis régulièrement
+- Environ 1 réponse sur 2
+- En général maximum 1 emoji
+- Parfois 2 si ça fit vraiment
+- Varie entre:
+  🩷 😋 👀 ❤️ 😂 🥰 😇 😌
+- Ne mets pas toujours le même emoji
+- Une réponse sans emoji reste normale
+
 
 INFOS PERSONNELLES:
 - ville: Mont-Tremblant
@@ -247,6 +250,60 @@ def normalize(text):
         text = text.replace(old, new)
 
     text = re.sub(r"\s+", " ", text)
+
+    return text
+
+
+# =========================================================
+# NETTOYAGE DE LA RÉPONSE
+# =========================================================
+
+def clean_reply(text):
+    text = text.strip()
+
+    # Enlève les points finaux trop formels
+    while text.endswith("."):
+        text = text[:-1].rstrip()
+
+    return text
+
+
+# =========================================================
+# EMOJI 1 MESSAGE SUR 2
+# =========================================================
+
+def should_use_emoji(chat_id):
+    count = emoji_counters.get(chat_id, 0)
+
+    emoji_counters[chat_id] = count + 1
+
+    return count % 2 == 0
+
+
+def add_natural_emoji(text):
+    emojis = [
+        "🩷",
+        "😋",
+        "👀",
+        "❤️",
+        "😂",
+        "🥰",
+        "😇",
+        "😌"
+    ]
+
+    # Si le message contient déjà un emoji, on n'en rajoute pas
+    if any(emoji in text for emoji in emojis):
+        return text
+
+    return text + random.choice(emojis)
+
+
+def style_fixed_reply(chat_id, text):
+    text = clean_reply(text)
+
+    if should_use_emoji(chat_id):
+        text = add_natural_emoji(text)
 
     return text
 
@@ -471,7 +528,10 @@ def fixed_reply(chat_id, text):
         "cest quoi ton interac",
         "c quoi ton interac",
         "email pour le virement",
-        "ton email pour payer"
+        "ton email pour payer",
+        "jenvoie largent ou",
+        "j'envoie largent ou",
+        "j envoie largent ou"
     ]
 
     if any(x in t for x in payment_questions):
@@ -501,31 +561,31 @@ def fixed_reply(chat_id, text):
     if asking_price:
 
         if "sextape" in t:
-            return "40$"
+            return "40$ babe"
 
         if "anal" in t:
-            return "40$"
+            return "40$ babe"
 
         if "strip" in t:
-            return "30$"
+            return "30$ babe"
 
         if "solo" in t:
             return "30$ pis sa vient avec des photos"
 
         if "squirt" in t:
-            return "40$"
+            return "40$ babe"
 
         if "snapsnap" in t or "snap to snap" in t:
-            return "80$"
+            return "80$ babe"
 
         if "deepthroat" in t:
-            return "40$"
+            return "40$ babe"
 
         if "camcam" in t or "cam cam" in t:
-            return "80$"
+            return "80$ babe"
 
         if "custom" in t:
-            return "150$ pour environ 10 minutes"
+            return "150$ pour environ 10 minutes babe"
 
 
     # -----------------------------------------------------
@@ -548,25 +608,20 @@ def fixed_reply(chat_id, text):
 
 
 # =========================================================
-# EMOJI EXACTEMENT 1 RÉPONSE SUR 2
+# INSTRUCTION EMOJI POUR OPENAI
 # =========================================================
 
 def emoji_instruction(chat_id):
-    count = emoji_counters.get(chat_id, 0)
-
-    emoji_counters[chat_id] = count + 1
-
-    if count % 2 == 0:
+    if should_use_emoji(chat_id):
         return """
 POUR CETTE RÉPONSE:
-Tu DOIS utiliser exactement 1 emoji naturel.
-Choisis l'emoji selon le contexte.
-Ne mets pas toujours le même.
+Utilise exactement 1 emoji naturel
+Ne mets pas toujours le même
 """
     else:
         return """
 POUR CETTE RÉPONSE:
-N'utilise AUCUN emoji.
+N'utilise aucun emoji
 """
 
 
@@ -600,10 +655,7 @@ def ask_ai(chat_id, text):
     response = client.chat.completions.create(
         model=REPLY_MODEL,
         messages=messages,
-
-        # Bas = plus logique / moins random
         temperature=0.15,
-
         max_tokens=60
     )
 
@@ -614,6 +666,8 @@ def ask_ai(chat_id, text):
         .content
         .strip()
     )
+
+    answer = clean_reply(answer)
 
     history.append({
         "role": "assistant",
@@ -639,6 +693,16 @@ def generate_reply(chat_id, text):
 
     if direct is not None:
 
+        # Le menu contient déjà ses propres emojis.
+        # On ne le modifie pas.
+        if direct == MENU_MESSAGE:
+            final_answer = direct
+        else:
+            final_answer = style_fixed_reply(
+                chat_id,
+                direct
+            )
+
         history.append({
             "role": "user",
             "content": text
@@ -646,12 +710,12 @@ def generate_reply(chat_id, text):
 
         history.append({
             "role": "assistant",
-            "content": direct
+            "content": final_answer
         })
 
         conversation_history[chat_id] = history[-MAX_HISTORY:]
 
-        return direct
+        return final_answer
 
     return ask_ai(
         chat_id,
@@ -716,7 +780,7 @@ def send_business_message(
 
 def main():
     print(
-        "Secretary bot demarre - version simple.",
+        "Secretary bot demarre - version naturelle.",
         flush=True
     )
 
@@ -773,7 +837,6 @@ def main():
                     continue
 
                 chat_id = message["chat"]["id"]
-
                 message_id = message["message_id"]
 
                 business_connection_id = (
