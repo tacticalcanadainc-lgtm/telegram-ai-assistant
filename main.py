@@ -261,7 +261,6 @@ def normalize(text):
 def clean_reply(text):
     text = text.strip()
 
-    # Enlève les points finaux trop formels
     while text.endswith("."):
         text = text[:-1].rstrip()
 
@@ -292,7 +291,6 @@ def add_natural_emoji(text):
         "😌"
     ]
 
-    # Si le message contient déjà un emoji, on n'en rajoute pas
     if any(emoji in text for emoji in emojis):
         return text
 
@@ -482,34 +480,32 @@ def fixed_reply(chat_id, text):
 
     # -----------------------------------------------------
     # PAIEMENT ENVOYÉ
+    # PETITE CORRECTION DEMANDÉE
     # -----------------------------------------------------
-
-    payment_context = any(
-        x in context
-        for x in [
-            "virement",
-            "interac",
-            "payer",
-            "paye",
-            INTERAC_EMAIL.lower()
-        ]
-    )
 
     sent_payment_phrases = [
         "jai envoye",
         "j ai envoye",
+        "je viens denvoyer",
+        "je viens d envoyer",
+        "je viens de lenvoyer",
+        "je viens de l envoyer",
         "c envoye",
         "cest envoye",
         "virement fait",
+        "jai fait le virement",
+        "j ai fait le virement",
+        "jai envoyer le virement",
+        "jai envoye le virement",
+        "j ai envoye le virement",
+        "je viens denvoyer le virement",
+        "je viens d envoyer le virement",
         "jai payer",
         "jai paye",
         "je viens de payer"
     ]
 
-    if (
-        payment_context
-        and any(x in t for x in sent_payment_phrases)
-    ):
+    if any(x in t for x in sent_payment_phrases):
         return "parfait je vais checker sa attend 2 sec🩷"
 
 
@@ -697,6 +693,11 @@ def generate_reply(chat_id, text):
         # On ne le modifie pas.
         if direct == MENU_MESSAGE:
             final_answer = direct
+
+        # Cette réponse doit rester EXACTEMENT comme définie
+        elif direct == "parfait je vais checker sa attend 2 sec🩷":
+            final_answer = direct
+
         else:
             final_answer = style_fixed_reply(
                 chat_id,
