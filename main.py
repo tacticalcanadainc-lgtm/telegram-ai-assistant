@@ -510,7 +510,7 @@ def fixed_reply(chat_id, text):
         payment_context
         and any(x in t for x in sent_payment_phrases)
     ):
-        return "okii attend je verifie"
+        return "parfait je vais checker sa attend 2 sec🩷"
 
 
     # -----------------------------------------------------
